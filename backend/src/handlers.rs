@@ -1,5 +1,5 @@
 use axum::{
-    extract::{ConnectInfo, Path, State},
+    extract::{ConnectInfo, Path, Query, State},
     http::HeaderMap,
     response::{IntoResponse, Redirect, Response},
     Json,
@@ -10,16 +10,24 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use crate::AppState;
+use crate::cache::CachedShortLink;
 use crate::error::AppError;
 use crate::middleware::UserCookie;
 use crate::models::{
-    CreateShortLinkRequest, ShortLinkResponse, StatsResponse, UserLinksResponse,
+    CreateShortLinkRequest, PaginatedUserLinksResponse, ShortLinkResponse, StatsResponse,
+    UserLinksResponse,
 };
 use crate::utils::{generate_short_code, validate_url};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HealthResponse {
     pub status: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PaginationQuery {
+    pub page: Option<i64>,
+    pub page_size: Option<i64>,
 }
 
 pub async fn health() -> Json<HealthResponse> {
@@ -80,8 +88,17 @@ pub async fn create_short_link(
             &payload.original_url,
             &user_cookie.0,
             payload.expires_in_hours,
+            payload.expires_at,
         )
         .await?;
+
+    let cached_link = CachedShortLink {
+        id: link.id,
+        short_code: link.short_code.clone(),
+        original_url: link.original_url.clone(),
+        expires_at: link.expires_at,
+    };
+    state.cache.set_short_link(&cached_link, state.config.cache_ttl_seconds).await?;
 
     let host = headers
         .get("host")
@@ -91,6 +108,8 @@ pub async fn create_short_link(
     let scheme = if host.contains("localhost") { "http" } else { "https" };
     let short_url = format!("{}://{}/{}", scheme, host, short_code);
 
+    let is_expired = link.expires_at.map(|e| Utc::now() > e).unwrap_or(false);
+
     Ok(Json(ShortLinkResponse {
         short_code: link.short_code,
         original_url: link.original_url,
@@ -98,6 +117,7 @@ pub async fn create_short_link(
         created_at: link.created_at,
         expires_at: link.expires_at,
         total_clicks: 0,
+        is_expired,
     }))
 }
 
@@ -105,7 +125,8 @@ pub async fn get_user_links(
     State(state): State<Arc<AppState>>,
     user_cookie: UserCookie,
     headers: HeaderMap,
-) -> Result<Json<UserLinksResponse>, AppError> {
+    Query(query): Query<PaginationQuery>,
+) -> Result<Response, AppError> {
     let host = headers
         .get("host")
         .and_then(|h| h.to_str().ok())
@@ -114,9 +135,24 @@ pub async fn get_user_links(
     let scheme = if host.contains("localhost") { "http" } else { "https" };
     let base_url = format!("{}://{}", scheme, host);
 
-    let links = state.db.get_user_links(&user_cookie.0, &base_url).await?;
+    let page = query.page.unwrap_or(1).max(1);
+    let page_size = query.page_size.unwrap_or(20).clamp(1, 100);
 
-    Ok(Json(UserLinksResponse { links }))
+    if query.page.is_some() || query.page_size.is_some() {
+        let (links, total) = state.db.get_user_links_paginated(&user_cookie.0, &base_url, page, page_size).await?;
+        let total_pages = ((total as f64) / (page_size as f64)).ceil() as i64;
+        
+        Ok(Json(PaginatedUserLinksResponse {
+            links,
+            total,
+            page,
+            page_size,
+            total_pages,
+        }).into_response())
+    } else {
+        let links = state.db.get_user_links(&user_cookie.0, &base_url).await?;
+        Ok(Json(UserLinksResponse { links }).into_response())
+    }
 }
 
 pub async fn get_link_stats(
@@ -146,70 +182,43 @@ pub async fn redirect_short_link(
     headers: HeaderMap,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
 ) -> Result<Response, AppError> {
-    let cached_url = state.cache.get_url(&short_code).await?;
+    let cached_link = state.cache.get_short_link(&short_code).await?;
     
-    let link = if let Some(url) = cached_url {
+    let link = if let Some(cached) = cached_link {
+        if let Some(expires_at) = cached.expires_at {
+            if Utc::now() > expires_at {
+                return Err(AppError::Expired);
+            }
+        }
+        
+        state.cache.increment_click_count(cached.id).await?;
+        
+        Ok(Redirect::to(&cached.original_url).into_response())
+    } else {
         let db_link = state
             .db
             .get_short_link(&short_code)
             .await?
             .ok_or(AppError::NotFound)?;
-        Some(db_link)
-    } else {
-        let db_link = state
-            .db
-            .get_short_link(&short_code)
-            .await?;
         
-        if let Some(ref link) = db_link {
-            state
-                .cache
-                .set_url(&short_code, &link.original_url, state.config.cache_ttl_seconds)
-                .await?;
+        if let Some(expires_at) = db_link.expires_at {
+            if Utc::now() > expires_at {
+                return Err(AppError::Expired);
+            }
         }
         
-        db_link
+        let cached = CachedShortLink {
+            id: db_link.id,
+            short_code: db_link.short_code.clone(),
+            original_url: db_link.original_url.clone(),
+            expires_at: db_link.expires_at,
+        };
+        state.cache.set_short_link(&cached, state.config.cache_ttl_seconds).await?;
+        
+        state.cache.increment_click_count(db_link.id).await?;
+        
+        Ok(Redirect::to(&db_link.original_url).into_response())
     };
-
-    let link = link.ok_or(AppError::NotFound)?;
-
-    if let Some(expires_at) = link.expires_at {
-        if Utc::now() > expires_at {
-            return Err(AppError::Expired);
-        }
-    }
-
-    let ip = headers
-        .get("x-forwarded-for")
-        .and_then(|h| h.to_str().ok())
-        .and_then(|s| s.split(',').next())
-        .map(|s| s.trim().to_string())
-        .or_else(|| {
-            headers.get("x-real-ip")
-                .and_then(|h| h.to_str().ok())
-                .map(|s| s.to_string())
-        })
-        .unwrap_or_else(|| addr.ip().to_string());
-
-    let user_agent = headers
-        .get("user-agent")
-        .and_then(|h| h.to_str().ok())
-        .map(|s| s.to_string());
-
-    let referer = headers
-        .get("referer")
-        .and_then(|h| h.to_str().ok())
-        .map(|s| s.to_string());
-
-    state
-        .db
-        .record_visit(
-            link.id,
-            Some(&ip),
-            user_agent.as_deref(),
-            referer.as_deref(),
-        )
-        .await?;
-
-    Ok(Redirect::to(&link.original_url).into_response())
+    
+    link
 }

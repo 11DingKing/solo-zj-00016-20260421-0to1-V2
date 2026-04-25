@@ -1,5 +1,6 @@
 use chrono::{DateTime, Duration, Utc};
 use sqlx::{PgPool, Row};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::error::AppError;
@@ -22,10 +23,13 @@ impl DbPool {
         original_url: &str,
         user_cookie: &str,
         expires_in_hours: Option<i64>,
+        expires_at: Option<DateTime<Utc>>,
     ) -> Result<ShortLink, AppError> {
-        let expires_at = expires_in_hours.map(|hours| {
-            Utc::now() + Duration::hours(hours)
-        });
+        let final_expires_at = if let Some(exp_at) = expires_at {
+            Some(exp_at)
+        } else {
+            expires_in_hours.map(|hours| Utc::now() + Duration::hours(hours))
+        };
 
         let link: ShortLink = sqlx::query_as(
             r#"
@@ -37,7 +41,7 @@ impl DbPool {
         .bind(short_code)
         .bind(original_url)
         .bind(user_cookie)
-        .bind(expires_at)
+        .bind(final_expires_at)
         .fetch_one(&*self.pool)
         .await?;
 
@@ -79,22 +83,92 @@ impl DbPool {
         .fetch_all(&*self.pool)
         .await?;
 
+        let now = Utc::now();
         let links: Vec<UserLinkListItem> = rows
             .into_iter()
             .map(|row| {
                 let short_code: String = row.get("short_code");
+                let expires_at: Option<DateTime<Utc>> = row.get("expires_at");
+                let is_expired = expires_at.map(|e| now > e).unwrap_or(false);
+                
                 UserLinkListItem {
                     short_code: short_code.clone(),
                     original_url: row.get("original_url"),
                     short_url: format!("{}/{}", base_url, short_code),
                     created_at: row.get("created_at"),
-                    expires_at: row.get("expires_at"),
+                    expires_at,
                     total_clicks: row.get::<i64, _>("total_clicks"),
+                    is_expired,
                 }
             })
             .collect();
 
         Ok(links)
+    }
+
+    pub async fn get_user_links_paginated(
+        &self,
+        user_cookie: &str,
+        base_url: &str,
+        page: i64,
+        page_size: i64,
+    ) -> Result<(Vec<UserLinkListItem>, i64), AppError> {
+        let offset = (page - 1) * page_size;
+        
+        let total_row: (i64,) = sqlx::query_as(
+            r#"
+            SELECT COUNT(*) FROM short_links WHERE user_cookie = $1
+            "#
+        )
+        .bind(user_cookie)
+        .fetch_one(&*self.pool)
+        .await?;
+        
+        let total = total_row.0;
+
+        let rows = sqlx::query(
+            r#"
+            SELECT 
+                sl.short_code,
+                sl.original_url,
+                sl.created_at,
+                sl.expires_at,
+                COUNT(lv.id) as total_clicks
+            FROM short_links sl
+            LEFT JOIN link_visits lv ON sl.id = lv.short_link_id
+            WHERE sl.user_cookie = $1
+            GROUP BY sl.id, sl.short_code, sl.original_url, sl.created_at, sl.expires_at
+            ORDER BY sl.created_at DESC
+            LIMIT $2 OFFSET $3
+            "#
+        )
+        .bind(user_cookie)
+        .bind(page_size)
+        .bind(offset)
+        .fetch_all(&*self.pool)
+        .await?;
+
+        let now = Utc::now();
+        let links: Vec<UserLinkListItem> = rows
+            .into_iter()
+            .map(|row| {
+                let short_code: String = row.get("short_code");
+                let expires_at: Option<DateTime<Utc>> = row.get("expires_at");
+                let is_expired = expires_at.map(|e| now > e).unwrap_or(false);
+                
+                UserLinkListItem {
+                    short_code: short_code.clone(),
+                    original_url: row.get("original_url"),
+                    short_url: format!("{}/{}", base_url, short_code),
+                    created_at: row.get("created_at"),
+                    expires_at,
+                    total_clicks: row.get::<i64, _>("total_clicks"),
+                    is_expired,
+                }
+            })
+            .collect();
+
+        Ok((links, total))
     }
 
     pub async fn record_visit(
@@ -117,6 +191,30 @@ impl DbPool {
         .execute(&*self.pool)
         .await?;
 
+        Ok(())
+    }
+
+    pub async fn batch_update_click_counts(
+        &self,
+        counts: &HashMap<i32, i64>,
+    ) -> Result<(), AppError> {
+        let mut tx = self.pool.begin().await?;
+        
+        for (id, count) in counts {
+            for _ in 0..*count {
+                sqlx::query(
+                    r#"
+                    INSERT INTO link_visits (short_link_id)
+                    VALUES ($1)
+                    "#
+                )
+                .bind(id)
+                .execute(&mut *tx)
+                .await?;
+            }
+        }
+        
+        tx.commit().await?;
         Ok(())
     }
 

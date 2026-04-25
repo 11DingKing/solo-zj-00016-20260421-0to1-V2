@@ -14,6 +14,9 @@ pub enum AppError {
     #[error("Redis error: {0}")]
     Redis(#[from] redis::RedisError),
     
+    #[error("JSON serialization error: {0}")]
+    Json(#[from] serde_json::Error),
+    
     #[error("Invalid URL")]
     InvalidUrl,
     
@@ -39,6 +42,10 @@ impl IntoResponse for AppError {
             }
             AppError::Redis(e) => {
                 tracing::error!("Redis error: {}", e);
+                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+            }
+            AppError::Json(e) => {
+                tracing::error!("JSON error: {}", e);
                 (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
             }
             AppError::InvalidUrl => (StatusCode::BAD_REQUEST, "Invalid URL"),

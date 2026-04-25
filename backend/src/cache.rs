@@ -1,7 +1,18 @@
+use chrono::{DateTime, Utc};
 use redis::Client;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::error::AppError;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CachedShortLink {
+    pub id: i32,
+    pub short_code: String,
+    pub original_url: String,
+    pub expires_at: Option<DateTime<Utc>>,
+}
 
 #[derive(Clone)]
 pub struct CachePool {
@@ -44,6 +55,102 @@ impl CachePool {
             .arg(original_url)
             .query_async::<_, ()>(&mut conn)
             .await?;
+        
+        Ok(())
+    }
+
+    pub async fn get_short_link(&self, short_code: &str) -> Result<Option<CachedShortLink>, AppError> {
+        let mut conn = self.client.get_async_connection().await?;
+        let key = format!("link:{}", short_code);
+        let result: Option<String> = redis::cmd("GET")
+            .arg(&key)
+            .query_async(&mut conn)
+            .await?;
+        
+        match result {
+            Some(json) => {
+                let link: CachedShortLink = serde_json::from_str(&json)?;
+                Ok(Some(link))
+            }
+            None => Ok(None),
+        }
+    }
+
+    pub async fn set_short_link(
+        &self,
+        link: &CachedShortLink,
+        ttl_seconds: u64,
+    ) -> Result<(), AppError> {
+        let mut conn = self.client.get_async_connection().await?;
+        let key = format!("link:{}", link.short_code);
+        let json = serde_json::to_string(link)?;
+        redis::cmd("SETEX")
+            .arg(&key)
+            .arg(ttl_seconds)
+            .arg(json)
+            .query_async::<_, ()>(&mut conn)
+            .await?;
+        
+        Ok(())
+    }
+
+    pub async fn delete_short_link(&self, short_code: &str) -> Result<(), AppError> {
+        let mut conn = self.client.get_async_connection().await?;
+        let key = format!("link:{}", short_code);
+        redis::cmd("DEL")
+            .arg(&key)
+            .query_async::<_, ()>(&mut conn)
+            .await?;
+        
+        Ok(())
+    }
+
+    pub async fn increment_click_count(&self, short_link_id: i32) -> Result<(), AppError> {
+        let mut conn = self.client.get_async_connection().await?;
+        let key = format!("clicks:{}", short_link_id);
+        redis::cmd("INCR")
+            .arg(&key)
+            .query_async::<_, ()>(&mut conn)
+            .await?;
+        
+        Ok(())
+    }
+
+    pub async fn get_all_click_counts(&self) -> Result<HashMap<i32, i64>, AppError> {
+        let mut conn = self.client.get_async_connection().await?;
+        let keys: Vec<String> = redis::cmd("KEYS")
+            .arg("clicks:*")
+            .query_async(&mut conn)
+            .await?;
+        
+        let mut counts = HashMap::new();
+        for key in keys {
+            let count: Option<i64> = redis::cmd("GET")
+                .arg(&key)
+                .query_async(&mut conn)
+                .await?;
+            
+            if let Some(c) = count {
+                if let Some(id_str) = key.strip_prefix("clicks:") {
+                    if let Ok(id) = id_str.parse::<i32>() {
+                        counts.insert(id, c);
+                    }
+                }
+            }
+        }
+        
+        Ok(counts)
+    }
+
+    pub async fn delete_click_counts(&self, ids: &[i32]) -> Result<(), AppError> {
+        let mut conn = self.client.get_async_connection().await?;
+        for id in ids {
+            let key = format!("clicks:{}", id);
+            redis::cmd("DEL")
+                .arg(&key)
+                .query_async::<_, ()>(&mut conn)
+                .await?;
+        }
         
         Ok(())
     }

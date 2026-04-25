@@ -22,9 +22,9 @@ impl Config {
             .unwrap_or(10);
         
         let cache_ttl_seconds = env::var("CACHE_TTL_SECONDS")
-            .unwrap_or_else(|_| "3600".to_string())
+            .unwrap_or_else(|_| "86400".to_string())
             .parse()
-            .unwrap_or(3600);
+            .unwrap_or(86400);
 
         Self {
             database_url,

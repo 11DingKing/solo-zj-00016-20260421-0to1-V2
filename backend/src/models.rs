@@ -28,6 +28,7 @@ pub struct LinkVisit {
 pub struct CreateShortLinkRequest {
     pub original_url: String,
     pub expires_in_hours: Option<i64>,
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,6 +39,7 @@ pub struct ShortLinkResponse {
     pub created_at: DateTime<Utc>,
     pub expires_at: Option<DateTime<Utc>>,
     pub total_clicks: i64,
+    pub is_expired: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,6 +50,16 @@ pub struct UserLinkListItem {
     pub created_at: DateTime<Utc>,
     pub expires_at: Option<DateTime<Utc>>,
     pub total_clicks: i64,
+    pub is_expired: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaginatedUserLinksResponse {
+    pub links: Vec<UserLinkListItem>,
+    pub total: i64,
+    pub page: i64,
+    pub page_size: i64,
+    pub total_pages: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
