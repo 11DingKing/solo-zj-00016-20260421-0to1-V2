@@ -47,7 +47,7 @@ services:
       REDIS_URL: redis://redis:6379
       RUST_LOG: info
       RATE_LIMIT_PER_MINUTE: 10
-      CACHE_TTL_SECONDS: 3600
+      CACHE_TTL_SECONDS: 86400
     depends_on:
       postgres:
         condition: service_healthy
