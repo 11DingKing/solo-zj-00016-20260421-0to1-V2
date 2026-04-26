@@ -116,6 +116,17 @@ impl CachePool {
         Ok(())
     }
 
+    pub async fn get_click_count(&self, short_link_id: i32) -> Result<i64, AppError> {
+        let mut conn = self.client.get_async_connection().await?;
+        let key = format!("clicks:{}", short_link_id);
+        let count: Option<i64> = redis::cmd("GET")
+            .arg(&key)
+            .query_async(&mut conn)
+            .await?;
+        
+        Ok(count.unwrap_or(0))
+    }
+
     pub async fn get_all_click_counts(&self) -> Result<HashMap<i32, i64>, AppError> {
         let mut conn = self.client.get_async_connection().await?;
         let keys: Vec<String> = redis::cmd("KEYS")

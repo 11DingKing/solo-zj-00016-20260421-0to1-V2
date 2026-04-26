@@ -1,5 +1,7 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+  <div
+    class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50"
+  >
     <div class="container mx-auto px-4 py-8 max-w-4xl">
       <header class="text-center mb-12">
         <h1 class="text-4xl font-bold text-gray-800 mb-2">短链接生成器</h1>
@@ -10,7 +12,9 @@
         <h2 class="text-xl font-semibold text-gray-700 mb-4">创建短链接</h2>
         <form @submit.prevent="createShortLink" class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-600 mb-1">长链接</label>
+            <label class="block text-sm font-medium text-gray-600 mb-1"
+              >长链接</label
+            >
             <input
               v-model="longUrl"
               type="url"
@@ -20,7 +24,9 @@
             />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-600 mb-1">过期时间</label>
+            <label class="block text-sm font-medium text-gray-600 mb-1"
+              >过期时间</label
+            >
             <select
               v-model="expiryOption"
               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
@@ -32,7 +38,9 @@
             </select>
           </div>
           <div v-if="expiryOption === 'custom'">
-            <label class="block text-sm font-medium text-gray-600 mb-1">选择过期日期和时间</label>
+            <label class="block text-sm font-medium text-gray-600 mb-1"
+              >选择过期日期和时间</label
+            >
             <input
               type="datetime-local"
               v-model="customExpiry"
@@ -49,7 +57,10 @@
           </button>
         </form>
 
-        <div v-if="error" class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600">
+        <div
+          v-if="error"
+          class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600"
+        >
           {{ error }}
         </div>
 
@@ -57,8 +68,12 @@
           v-if="createdLink"
           class="mt-6 p-6 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100"
         >
-          <h3 class="text-lg font-semibold text-gray-700 mb-4">短链接已生成！</h3>
-          <div class="flex flex-col md:flex-row items-start md:items-center gap-4">
+          <h3 class="text-lg font-semibold text-gray-700 mb-4">
+            短链接已生成！
+          </h3>
+          <div
+            class="flex flex-col md:flex-row items-start md:items-center gap-4"
+          >
             <div class="flex-1">
               <p class="text-sm text-gray-500 mb-1">短链接</p>
               <div class="flex items-center gap-2">
@@ -74,20 +89,37 @@
                   class="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
                   title="复制链接"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    />
                   </svg>
                 </button>
               </div>
-              <p class="text-sm text-gray-500 mt-2">
+              <p class="text-sm text-gray-500 mt-2 break-all">
                 原始链接：{{ createdLink.original_url }}
               </p>
-              <p v-if="createdLink.expires_at" class="text-sm text-gray-500 mt-1">
+              <p
+                v-if="createdLink.expires_at"
+                class="text-sm text-gray-500 mt-1"
+              >
                 过期时间：{{ formatDate(createdLink.expires_at) }}
               </p>
             </div>
             <div class="flex-shrink-0">
-              <canvas ref="qrCanvas" class="bg-white p-2 rounded-lg shadow-sm"></canvas>
+              <canvas
+                ref="qrCanvas"
+                class="bg-white p-2 rounded-lg shadow-sm"
+              ></canvas>
             </div>
           </div>
         </div>
@@ -108,9 +140,23 @@
           加载中...
         </div>
 
-        <div v-else-if="userLinks.length === 0" class="text-center py-12 text-gray-500">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+        <div
+          v-else-if="userLinks.length === 0"
+          class="text-center py-12 text-gray-500"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-16 w-16 mx-auto mb-4 text-gray-300"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+            />
           </svg>
           <p>还没有创建任何短链接</p>
         </div>
@@ -119,9 +165,11 @@
           <div
             v-for="link in userLinks"
             :key="link.short_code"
-            class="border border-gray-200 rounded-xl p-4 hover:border-indigo-300 hover:shadow-md transition"
+            class="border border-gray-200 rounded-xl p-4 hover:border-indigo-300 hover:shadow-md transition overflow-hidden"
           >
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div
+              class="flex flex-col md:flex-row md:items-center justify-between gap-4"
+            >
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-1">
                   <a
@@ -136,8 +184,19 @@
                     class="p-1 text-gray-400 hover:text-indigo-600 rounded"
                     title="复制"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      />
                     </svg>
                   </button>
                   <span
@@ -153,12 +212,20 @@
                     有效
                   </span>
                 </div>
-                <p class="text-sm text-gray-500 truncate">{{ link.original_url }}</p>
-                <div class="flex items-center flex-wrap gap-4 mt-2 text-xs text-gray-400">
+                <p class="text-sm text-gray-500 truncate">
+                  {{ link.original_url }}
+                </p>
+                <div
+                  class="flex items-center flex-wrap gap-4 mt-2 text-xs text-gray-400"
+                >
                   <span>点击: {{ link.total_clicks }}</span>
                   <span>创建于: {{ formatDate(link.created_at) }}</span>
                   <span v-if="link.expires_at">
-                    {{ link.is_expired ? '已过期' : '过期: ' + formatDate(link.expires_at) }}
+                    {{
+                      link.is_expired
+                        ? "已过期"
+                        : "过期: " + formatDate(link.expires_at)
+                    }}
                   </span>
                 </div>
               </div>
@@ -185,21 +252,21 @@
           >
             上一页
           </button>
-          
+
           <button
             v-for="page in visiblePages"
             :key="page"
             @click="changePage(page)"
             :class="[
               'px-3 py-1 rounded text-sm transition',
-              currentPage === page 
-                ? 'bg-indigo-600 text-white' 
-                : 'border border-gray-300 hover:bg-gray-50'
+              currentPage === page
+                ? 'bg-indigo-600 text-white'
+                : 'border border-gray-300 hover:bg-gray-50',
             ]"
           >
             {{ page }}
           </button>
-          
+
           <button
             @click="changePage(currentPage + 1)"
             :disabled="currentPage >= totalPages"
@@ -207,7 +274,7 @@
           >
             下一页
           </button>
-          
+
           <span class="text-sm text-gray-500 ml-4">
             共 {{ totalLinks }} 条
           </span>
@@ -219,15 +286,30 @@
         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
         @click.self="closeStatsModal"
       >
-        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-          <div class="p-6 border-b border-gray-100 flex items-center justify-between">
+        <div
+          class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        >
+          <div
+            class="p-6 border-b border-gray-100 flex items-center justify-between"
+          >
             <h3 class="text-xl font-semibold text-gray-800">链接统计</h3>
             <button
               @click="closeStatsModal"
               class="p-2 hover:bg-gray-100 rounded-lg transition"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 text-gray-500"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
@@ -243,26 +325,44 @@
 
             <div v-else>
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 p-4 rounded-xl">
+                <div
+                  class="bg-gradient-to-br from-indigo-50 to-indigo-100 p-4 rounded-xl"
+                >
                   <p class="text-sm text-indigo-600">总点击数</p>
-                  <p class="text-3xl font-bold text-indigo-700">{{ stats.total_clicks }}</p>
+                  <p class="text-3xl font-bold text-indigo-700">
+                    {{ stats.total_clicks }}
+                  </p>
                 </div>
               </div>
 
               <div class="mb-6">
-                <h4 class="text-lg font-medium text-gray-700 mb-3">最近 7 天点击趋势</h4>
-                <div class="bg-gray-50 rounded-xl p-4" style="height: 300px;">
-                  <Line v-if="stats.daily_clicks.length > 0" :data="chartData" :options="chartOptions" />
-                  <div v-else class="flex items-center justify-center h-full text-gray-400">
+                <h4 class="text-lg font-medium text-gray-700 mb-3">
+                  最近 7 天点击趋势
+                </h4>
+                <div class="bg-gray-50 rounded-xl p-4" style="height: 300px">
+                  <Line
+                    v-if="stats.daily_clicks.length > 0"
+                    :data="chartData"
+                    :options="chartOptions"
+                  />
+                  <div
+                    v-else
+                    class="flex items-center justify-center h-full text-gray-400"
+                  >
                     暂无数据
                   </div>
                 </div>
               </div>
 
               <div>
-                <h4 class="text-lg font-medium text-gray-700 mb-3">来源 Top 5</h4>
+                <h4 class="text-lg font-medium text-gray-700 mb-3">
+                  来源 Top 5
+                </h4>
                 <div class="bg-gray-50 rounded-xl p-4">
-                  <div v-if="stats.top_referers.length === 0" class="text-center py-4 text-gray-400">
+                  <div
+                    v-if="stats.top_referers.length === 0"
+                    class="text-center py-4 text-gray-400"
+                  >
                     暂无数据
                   </div>
                   <div v-else class="space-y-2">
@@ -271,13 +371,19 @@
                       :key="referer.referer"
                       class="flex items-center gap-3 p-3 bg-white rounded-lg"
                     >
-                      <span class="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-indigo-100 text-indigo-600 rounded-full text-sm font-medium">
+                      <span
+                        class="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-indigo-100 text-indigo-600 rounded-full text-sm font-medium"
+                      >
                         {{ index + 1 }}
                       </span>
                       <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium text-gray-700 truncate">{{ referer.referer || '直接访问' }}</p>
+                        <p class="text-sm font-medium text-gray-700 truncate">
+                          {{ referer.referer || "直接访问" }}
+                        </p>
                       </div>
-                      <span class="flex-shrink-0 text-sm text-gray-500">{{ referer.count }} 次</span>
+                      <span class="flex-shrink-0 text-sm text-gray-500"
+                        >{{ referer.count }} 次</span
+                      >
                     </div>
                   </div>
                 </div>
@@ -291,9 +397,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, nextTick } from 'vue';
-import QRCode from 'qrcode';
-import { Line } from 'vue-chartjs';
+import { ref, onMounted, computed, nextTick } from "vue";
+import QRCode from "qrcode";
+import { Line } from "vue-chartjs";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -303,7 +409,7 @@ import {
   Title,
   Tooltip,
   Legend,
-} from 'chart.js';
+} from "chart.js";
 
 ChartJS.register(
   CategoryScale,
@@ -312,17 +418,17 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
 );
 
 const runtimeConfig = useRuntimeConfig();
 const apiBase = runtimeConfig.public.apiBase;
 
-const longUrl = ref('');
-const expiryOption = ref('permanent');
-const customExpiry = ref('');
+const longUrl = ref("");
+const expiryOption = ref("permanent");
+const customExpiry = ref("");
 const isLoading = ref(false);
-const error = ref('');
+const error = ref("");
 const createdLink = ref(null);
 const qrCanvas = ref(null);
 
@@ -337,43 +443,43 @@ const statsModalVisible = ref(false);
 const selectedLink = ref(null);
 const stats = ref(null);
 const statsLoading = ref(false);
-const statsError = ref('');
+const statsError = ref("");
 
 const visiblePages = computed(() => {
   const pages = [];
   const start = Math.max(1, currentPage.value - 2);
   const end = Math.min(totalPages.value, currentPage.value + 2);
-  
+
   for (let i = start; i <= end; i++) {
     pages.push(i);
   }
-  
+
   return pages;
 });
 
 const chartData = computed(() => {
   if (!stats.value) return { labels: [], datasets: [] };
-  
-  const sortedClicks = [...stats.value.daily_clicks].sort((a, b) => 
-    new Date(a.date) - new Date(b.date)
+
+  const sortedClicks = [...stats.value.daily_clicks].sort(
+    (a, b) => new Date(a.date) - new Date(b.date),
   );
-  
+
   return {
-    labels: sortedClicks.map(c => {
+    labels: sortedClicks.map((c) => {
       const date = new Date(c.date);
       return `${date.getMonth() + 1}/${date.getDate()}`;
     }),
     datasets: [
       {
-        label: '点击数',
-        backgroundColor: 'rgba(99, 102, 241, 0.1)',
-        borderColor: 'rgb(99, 102, 241)',
+        label: "点击数",
+        backgroundColor: "rgba(99, 102, 241, 0.1)",
+        borderColor: "rgb(99, 102, 241)",
         borderWidth: 2,
-        data: sortedClicks.map(c => c.count),
+        data: sortedClicks.map((c) => c.count),
         tension: 0.4,
         fill: true,
-        pointBackgroundColor: 'rgb(99, 102, 241)',
-        pointBorderColor: '#fff',
+        pointBackgroundColor: "rgb(99, 102, 241)",
+        pointBorderColor: "#fff",
         pointBorderWidth: 2,
         pointRadius: 4,
       },
@@ -389,7 +495,7 @@ const chartOptions = computed(() => ({
       display: false,
     },
     tooltip: {
-      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      backgroundColor: "rgba(0, 0, 0, 0.8)",
       padding: 12,
       titleFont: {
         size: 14,
@@ -406,7 +512,7 @@ const chartOptions = computed(() => ({
         precision: 0,
       },
       grid: {
-        color: 'rgba(0, 0, 0, 0.05)',
+        color: "rgba(0, 0, 0, 0.05)",
       },
     },
     x: {
@@ -419,13 +525,16 @@ const chartOptions = computed(() => ({
 
 const getExpiryParams = () => {
   switch (expiryOption.value) {
-    case '7days':
+    case "7days":
       return { expires_in_hours: 168, expires_at: null };
-    case '30days':
+    case "30days":
       return { expires_in_hours: 720, expires_at: null };
-    case 'custom':
+    case "custom":
       if (customExpiry.value) {
-        return { expires_in_hours: null, expires_at: new Date(customExpiry.value) };
+        return {
+          expires_in_hours: null,
+          expires_at: new Date(customExpiry.value),
+        };
       }
       return { expires_in_hours: null, expires_at: null };
     default:
@@ -443,54 +552,56 @@ const generateQRCode = async () => {
         width: 128,
         margin: 2,
         color: {
-          dark: '#1e1b4b',
-          light: '#ffffff',
+          dark: "#1e1b4b",
+          light: "#ffffff",
         },
       });
     } catch (e) {
-      console.error('QR code error:', e);
+      console.error("QR code error:", e);
     }
   }
 };
 
 const createShortLink = async () => {
   isLoading.value = true;
-  error.value = '';
+  error.value = "";
   createdLink.value = null;
 
   try {
     const { expires_in_hours, expires_at } = getExpiryParams();
-    
+
     const response = await fetch(`${apiBase}/api/links`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         original_url: longUrl.value,
         expires_in_hours,
         expires_at,
       }),
-      credentials: 'include',
+      credentials: "include",
     });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      throw new Error(
+        errorData.error || `HTTP error! status: ${response.status}`,
+      );
     }
 
     createdLink.value = await response.json();
-    longUrl.value = '';
-    expiryOption.value = 'permanent';
-    customExpiry.value = '';
-    
+    longUrl.value = "";
+    expiryOption.value = "permanent";
+    customExpiry.value = "";
+
     await nextTick();
     await generateQRCode();
-    
+
     currentPage.value = 1;
     await loadUserLinks();
   } catch (e) {
-    error.value = e.message || '创建短链接失败，请重试';
+    error.value = e.message || "创建短链接失败，请重试";
   } finally {
     isLoading.value = false;
   }
@@ -498,12 +609,15 @@ const createShortLink = async () => {
 
 const loadUserLinks = async () => {
   isLoadingLinks.value = true;
-  
+
   try {
-    const response = await fetch(`${apiBase}/api/links?page=${currentPage.value}&page_size=${pageSize.value}`, {
-      credentials: 'include',
-    });
-    
+    const response = await fetch(
+      `${apiBase}/api/links?page=${currentPage.value}&page_size=${pageSize.value}`,
+      {
+        credentials: "include",
+      },
+    );
+
     if (response.ok) {
       const data = await response.json();
       userLinks.value = data.links || [];
@@ -511,7 +625,7 @@ const loadUserLinks = async () => {
       totalLinks.value = data.total || 0;
     }
   } catch (e) {
-    console.error('Failed to load user links:', e);
+    console.error("Failed to load user links:", e);
   } finally {
     isLoadingLinks.value = false;
   }
@@ -527,19 +641,21 @@ const showStats = async (link) => {
   selectedLink.value = link;
   statsModalVisible.value = true;
   statsLoading.value = true;
-  statsError.value = '';
+  statsError.value = "";
   stats.value = null;
 
   try {
-    const response = await fetch(`${apiBase}/api/links/${link.short_code}/stats`);
-    
+    const response = await fetch(
+      `${apiBase}/api/links/${link.short_code}/stats`,
+    );
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     stats.value = await response.json();
   } catch (e) {
-    statsError.value = e.message || '加载统计数据失败';
+    statsError.value = e.message || "加载统计数据失败";
   } finally {
     statsLoading.value = false;
   }
@@ -555,19 +671,19 @@ const copyToClipboard = async (text) => {
   try {
     await navigator.clipboard.writeText(text);
   } catch (e) {
-    console.error('Copy failed:', e);
+    console.error("Copy failed:", e);
   }
 };
 
 const formatDate = (dateStr) => {
-  if (!dateStr) return '';
+  if (!dateStr) return "";
   const date = new Date(dateStr);
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
+  return date.toLocaleString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 };
 

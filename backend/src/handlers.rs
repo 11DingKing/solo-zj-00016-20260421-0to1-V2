@@ -165,7 +165,10 @@ pub async fn get_link_stats(
         .await?
         .ok_or(AppError::NotFound)?;
 
-    let total_clicks = state.db.get_total_clicks(link.id).await?;
+    let db_clicks = state.db.get_total_clicks(link.id).await?;
+    let redis_clicks = state.cache.get_click_count(link.id).await?;
+    let total_clicks = db_clicks + redis_clicks;
+    
     let daily_clicks = state.db.get_daily_clicks(link.id, 7).await?;
     let top_referers = state.db.get_top_referers(link.id, 5).await?;
 
@@ -182,6 +185,28 @@ pub async fn redirect_short_link(
     headers: HeaderMap,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
 ) -> Result<Response, AppError> {
+    let ip = headers
+        .get("x-forwarded-for")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|s| s.split(',').next())
+        .map(|s| s.trim().to_string())
+        .or_else(|| {
+            headers.get("x-real-ip")
+                .and_then(|h| h.to_str().ok())
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_else(|| addr.ip().to_string());
+
+    let user_agent = headers
+        .get("user-agent")
+        .and_then(|h| h.to_str().ok())
+        .map(|s| s.to_string());
+
+    let referer = headers
+        .get("referer")
+        .and_then(|h| h.to_str().ok())
+        .map(|s| s.to_string());
+
     let cached_link = state.cache.get_short_link(&short_code).await?;
     
     let link = if let Some(cached) = cached_link {
@@ -192,6 +217,16 @@ pub async fn redirect_short_link(
         }
         
         state.cache.increment_click_count(cached.id).await?;
+        
+        state
+            .db
+            .record_visit(
+                cached.id,
+                Some(&ip),
+                user_agent.as_deref(),
+                referer.as_deref(),
+            )
+            .await?;
         
         Ok(Redirect::to(&cached.original_url).into_response())
     } else {
@@ -216,6 +251,16 @@ pub async fn redirect_short_link(
         state.cache.set_short_link(&cached, state.config.cache_ttl_seconds).await?;
         
         state.cache.increment_click_count(db_link.id).await?;
+        
+        state
+            .db
+            .record_visit(
+                db_link.id,
+                Some(&ip),
+                user_agent.as_deref(),
+                referer.as_deref(),
+            )
+            .await?;
         
         Ok(Redirect::to(&db_link.original_url).into_response())
     };
